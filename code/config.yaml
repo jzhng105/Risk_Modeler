@@ -1,0 +1,12 @@
+distributions:
+  - normal
+  - logistic
+  - exponential
+  - gamma
+  - beta
+  - lognormal
+  - uniform
+
+metrics:
+  - aic
+  - bic

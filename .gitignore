@@ -130,6 +130,10 @@ ENV/
 env.bak/
 venv.bak/
 
+# Directories
+/outputs/
+/inputs/
+
 # Spyder project settings
 .spyderproject
 .spyproject
