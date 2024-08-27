@@ -4,6 +4,9 @@ import scipy.stats as stats
 import matplotlib.pyplot as plt
 from functools import wraps
 import code.utils.utils as utils
+import pandas as pd
+import code.utils.stochastic_simulation as stk
+from code.utils.distribution_decorator import poisson, nbinom
 
 # Decorator to check if a distribution has been selected
 def check_selected_dist(func):
@@ -27,7 +30,8 @@ class DistributionFitter:
             'pareto': stats.pareto,
             'poisson': stats.poisson,
             'weibull': stats.weibull_min,
-            'lognormal': stats.lognorm
+            'lognormal': stats.lognorm,
+            'negative binomial': stats.nbinom,
         }
 
         # Filter available distributions based on user inputs
@@ -40,6 +44,8 @@ class DistributionFitter:
 
         self.results = []
         self.best_fits = {} 
+        self.statistics = {}
+        self.selected_fit = None
 
     def fit(self):
         if self.data is None:
@@ -111,7 +117,11 @@ class DistributionFitter:
 
     @check_selected_dist
     def get_selected_dist(self):
-        return self.selected_fit
+        return self.selected_fit['distribution']
+    
+    @check_selected_dist
+    def get_selected_params(self):
+        return self.selected_fit['params']
 
     @check_selected_dist
     def predict(self, x):
@@ -139,7 +149,7 @@ class DistributionFitter:
         predicted_std = np.sqrt(np.sum((x_values - predicted_mean)**2 * predicted_pdf) / np.sum(predicted_pdf))
         predicted_percentiles = np.percentile(predicted_pdf, [5, 25, 50, 75, 95])
 
-        return {
+        self.statistics =  {
             'data': {
                 'mean': data_mean,
                 'std': data_std,
@@ -151,6 +161,10 @@ class DistributionFitter:
                 'percentiles': predicted_percentiles
             }
         }
+
+        return pd.DataFrame(self.statistics)
+    
+    '''
 
     @check_selected_dist
     def plot_predictions(self):
@@ -165,31 +179,65 @@ class DistributionFitter:
         plt.title(f"Selected Distribution: {self.selected_fit['name']}")
         plt.legend()
         plt.show()
+    '''
+
+    def plot_predictions(self, distribution_names=None):
+        """Plot the data and the PDFs of selected distributions."""
+        if distribution_names is None:
+            distribution_names = [result['name'] for result in self.results]
+
+        # Get colors for the distributions
+        colors = plt.cm.get_cmap('tab10', len(distribution_names))
+        
+        x_values = np.linspace(min(self.data), max(self.data), 100)
+        plt.figure(figsize=(10, 6))
+        
+        # Plot histogram of the data
+        plt.hist(self.data, bins=30, density=True, alpha=0.6, color='gray', label='Actual Data')
+
+        # Plot the PDFs of the selected distributions
+        for idx, name in enumerate(distribution_names):
+            result = next((result for result in self.results if result['name'] == name), None)
+            if result:
+                pdf_values = result['distribution'].pdf(x_values, *result['params'])
+                plt.plot(x_values, pdf_values, lw=2, label=f'{name} PDF', color=colors(idx))
+
+        plt.xlabel('Data')
+        plt.ylabel('Density')
+        plt.title('Fitted Distributions vs Actual Data')
+        plt.legend()
+        plt.show()
+
 
     def summary(self):
         if not self.results:
             raise ValueError("No distributions have been fitted yet. Call the 'fit' method first.")
-        return self.results
+        return pd.DataFrame(self.results)
 
 # Example usage
 
 # Load data (for example, normally distributed data)
-data = np.random.normal(0, 1, 1000)
+sev_data = np.random.normal(0, 1, 1000)
+freq_data = np.random.poisson(10, 1000)
 
 # Initialize fitter with config file
 config = utils.Config('code/config.yaml')
 
-# User specifies distributions and metrics
-distribution_names = config.distributions
+#############################
+###### Fit Severity #########
+#############################
+# User specifies distributions and metrics 
+distribution_names = config.distributions['severity']
 metrics = config.metrics
 
-fitter = DistributionFitter(data, distributions=distribution_names, metrics=metrics)
-fitter.fit()
-fitter.best_fits
-fitter.selected_fit
+sev_fitter = DistributionFitter(sev_data, distributions=distribution_names, metrics=metrics)
+sev_fitter.fit()
+sev_fitter.best_fits
+sev_fitter.selected_fit
+sev_fitter.get_selected_dist()
 # Selecting a distribution manually
-fitter.select_distribution('uniform')
-selected_fit = fitter.selected_fit
+sev_fitter.select_distribution('uniform')
+selected_fit = sev_fitter.selected_fit
 
 print("Selected fitting distribution:", selected_fit['name'])
 print("Parameters:", selected_fit['params'])
@@ -197,12 +245,42 @@ print("AIC:", selected_fit['aic'])
 print("BIC:", selected_fit['bic'])
 
 # Calculating statistics
-statistics = fitter.calculate_statistics()
-print("Statistics:", statistics)
+sev_fitter.calculate_statistics().to_csv('outputs/statistics.csv')
 
 # Plotting predictions
-fitter.plot_predictions()
+sev_fitter.plot_predictions()
+
+# Produce summary
+sev_fitter.summary().to_csv('outputs/summary.csv')
 
 # Generating samples
-samples = fitter.sample(size=10)
+samples = sev_fitter.sample(size=10)
 print("Generated samples:", samples)
+
+#############################
+###### Fit frequency ########
+#############################
+distribution_names = config.distributions['frequency']
+metrics = config.metrics
+
+freq_fitter = DistributionFitter(freq_data, distributions=distribution_names, metrics=metrics)
+freq_fitter.distributions
+poisson.fit(freq_data)
+poisson.logpdf(freq_data,10.07)
+freq_fitter.fit()
+freq_fitter.best_fits
+freq_fitter.selected_fit
+
+
+#####################################
+###### Stochastic Simulation ########
+#####################################
+freq_dist = freq_fitter.get_selected_dist()
+freq_params = freq_fitter.get_selected_params()
+sev_dist = sev_fitter.get_selected_dist()
+sev_params = sev_fitter.get_selected_params()
+
+
+simulator = stk.StochasticSimulator(freq_dist, freq_params, sev_dist, sev_params, 100, 1234)
+simulator.gen_agg_simulations()
+simulator.calc_agg_percentile(99)

@@ -1,11 +1,16 @@
 distributions:
-  - normal
-  - logistic
-  - exponential
-  - gamma
-  - beta
-  - lognormal
-  - uniform
+  severity:
+    - normal
+    - logistic
+    - exponential
+    - gamma
+    - beta
+    - lognormal
+    - uniform
+  frequency:
+    - poisson
+    - negative binomial
+
 
 metrics:
   - aic
