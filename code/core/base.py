@@ -265,8 +265,6 @@ metrics = config.metrics
 
 freq_fitter = DistributionFitter(freq_data, distributions=distribution_names, metrics=metrics)
 freq_fitter.distributions
-poisson.fit(freq_data)
-poisson.logpdf(freq_data,10.07)
 freq_fitter.fit()
 freq_fitter.best_fits
 freq_fitter.selected_fit
