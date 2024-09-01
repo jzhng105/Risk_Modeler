@@ -8,6 +8,10 @@ import pandas as pd
 import code.utils.stochastic_simulation as stk
 from code.utils.distribution_decorator import poisson, nbinom
 
+# treat inf as NaN
+pd.set_option('use_inf_as_na', True)
+
+
 # Decorator to check if a distribution has been selected
 def check_selected_dist(func):
     @wraps(func)
@@ -20,6 +24,7 @@ def check_selected_dist(func):
 class DistributionFitter:
     def __init__(self, data, distributions=None, metrics=None):
         self.data = data
+        self._length = len(data)
         self.available_distributions = {
             'uniform': stats.uniform,
             'normal': stats.norm,
@@ -46,6 +51,9 @@ class DistributionFitter:
         self.best_fits = {} 
         self.statistics = {}
         self.selected_fit = None
+    
+    def truncate_data(self, i=int):
+        self.data = self.data[(self.data != i).all(axis=1)]
 
     def fit(self):
         if self.data is None:
@@ -54,7 +62,11 @@ class DistributionFitter:
         for name, distribution in self.distributions.items():
             try:
                 params = distribution.fit(self.data)
-                log_likelihood = np.sum(distribution.logpdf(self.data, *params))
+                print(params)
+                if name == 'poisson' or name == 'negative binomial':
+                    log_likelihood = np.sum(distribution.logpmf(self.data, self._length, *params))
+                else:
+                    log_likelihood = np.sum(distribution.logpdf(self.data, *params))
 
                 # AIC
                 aic = 2 * len(params) - 2 * log_likelihood
@@ -217,7 +229,7 @@ class DistributionFitter:
 # Example usage
 
 # Load data (for example, normally distributed data)
-sev_data = np.random.normal(0, 1, 1000)
+sev_data = np.random.lognormal(10, 1, 1000)
 freq_data = np.random.poisson(10, 1000)
 
 # Initialize fitter with config file
@@ -279,6 +291,9 @@ sev_dist = sev_fitter.get_selected_dist()
 sev_params = sev_fitter.get_selected_params()
 
 
-simulator = stk.StochasticSimulator(freq_dist, freq_params, sev_dist, sev_params, 100, 1234)
+simulator = stk.StochasticSimulator(freq_dist, freq_params, sev_dist, sev_params, 1000, 1234, 0.6)
 simulator.gen_agg_simulations()
-simulator.calc_agg_percentile(99)
+simulator.calc_agg_percentile(99.2)
+simulator.plot_distribution()
+simulator.results.mean()
+simulator.plot_correlated_variables()
