@@ -13,7 +13,7 @@ pd.set_option('use_inf_as_na', True)
 
 class StochasticSimulator:
     def __init__(self, freq_dist, freq_params, sev_dist, sev_params,
-                 num_sim=10000, seed=1, correlation=None, copula_type=None, theta = 0):
+                 num_sim=10000, keep_all=False, seed=1, correlation=None, copula_type=None, theta = 0):
         self.frequency_dist = freq_dist
         self.frequency_params = freq_params
         self.severity_dist = sev_dist
@@ -23,6 +23,7 @@ class StochasticSimulator:
         self.correlation = correlation
         self.copula_type = copula_type
         self.theta = theta
+        self._keep_all = keep_all
         np.random.seed(seed)
 
         # Set up logging
@@ -63,11 +64,11 @@ class StochasticSimulator:
         return u[:, 0], u[:, 1]
 
 
-
-
     def gen_agg_simulations(self):
         results = []
-        result = 0
+        all_simulations_data = []  # Store data for the DataFrame
+        event_id = 0  # Overall event counter
+
         
         # If correlation is introduced via copula
         if self.correlation is not None and self.copula_type is not None:
@@ -80,6 +81,16 @@ class StochasticSimulator:
                 if num_events > 0:
                     correlated_severities = self.severity_dist.ppf(np.random.uniform(size=num_events, low=u_sev[i], high=1), *self.severity_params)
                     result = np.sum(correlated_severities)
+                    if self._keep_all:
+                        # Record individual event severities in DataFrame
+                        for yearly_event_id, severity in enumerate(correlated_severities, start=1):
+                            event_id += 1
+                            all_simulations_data.append({
+                                'year': i + 1,
+                                'event_id': event_id,
+                                'yearly_event_id': yearly_event_id,
+                                'amount': severity
+                            })
                 else:
                     result = 0
                 results.append(result)
@@ -110,6 +121,16 @@ class StochasticSimulator:
                     # Generate correlated severities and sum
                     correlated_severities = self.severity_dist.ppf(np.random.uniform(size=num_events[i], low=sev_random_var[i], high=1), *self.severity_params)
                     result = np.sum(correlated_severities)
+                    if self._keep_all:
+                        # Record individual event severities in DataFrame
+                        for yearly_event_id, severity in enumerate(correlated_severities, start=1):
+                            event_id += 1
+                            all_simulations_data.append({
+                                'year': i + 1,
+                                'event_id': event_id,
+                                'yearly_event_id': yearly_event_id,
+                                'amount': severity
+                            })
                 else:
                     result = 0
                 results.append(result)
@@ -145,12 +166,24 @@ class StochasticSimulator:
                 self.logger.info(f"Simulation {i+1}/{self.num_simulations}")
                 num_events = self.frequency_dist.rvs(*self.frequency_params)
                 if num_events > 0:
-                    result = np.sum(self.severity_dist.rvs(size=num_events, *self.severity_params))
+                    severities = self.severity_dist.rvs(size=num_events, *self.severity_params)
+                    result = np.sum(severities )
+                    if self._keep_all:
+                        # Record individual event severities in DataFrame
+                        for yearly_event_id, severity in enumerate(severities, start=1):
+                            event_id += 1
+                            all_simulations_data.append({
+                                'year': i + 1,
+                                'event_id': event_id,
+                                'yearly_event_id': yearly_event_id,
+                                'amount': severity
+                            })
                 else:
                     result = 0
                 results.append(result)
 
         self._results = results
+        self._all_simulations_data = all_simulations_data
         return results
     
     @property
@@ -159,6 +192,13 @@ class StochasticSimulator:
         if self._results is None:
             raise ValueError("Simulation results not found. Please run gen_agg_simulations() first.")
         return pd.Series(self._results)
+    
+    @property
+    def all_simulations(self):
+        """Returns simulation results as a Pandas dataframe."""
+        if self._all_simulations_data is None:
+            raise ValueError("Simulation results not found. Please run gen_agg_simulations() first.")
+        return pd.DataFrame(self._all_simulations_data)
     
     def calc_agg_percentile(self, pct = 95):
         if hasattr(self, 'results'):

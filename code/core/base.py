@@ -291,9 +291,10 @@ sev_dist = sev_fitter.get_selected_dist()
 sev_params = sev_fitter.get_selected_params()
 
 
-simulator = stk.StochasticSimulator(freq_dist, freq_params, sev_dist, sev_params, 1000, 1234, 0.6)
+simulator = stk.StochasticSimulator(freq_dist, freq_params, sev_dist, sev_params, 1000, True, 1234, 0.6)
 simulator.gen_agg_simulations()
 simulator.calc_agg_percentile(99.2)
 simulator.plot_distribution()
 simulator.results.mean()
 simulator.plot_correlated_variables()
+simulator.all_simulations
