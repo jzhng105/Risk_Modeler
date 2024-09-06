@@ -45,16 +45,9 @@ class VectorizedPiecewiseLinearModel:
 
         return y
 
-    def apply_to_column(self, df, column_name):
-        """
-        Apply the vectorized piecewise linear function to a column in a DataFrame.
-
-        Parameters:
-        - df: pandas DataFrame.
-        - column_name: the name of the column to which the function is applied.
-        """
-        df[f'{column_name}_transformed'] = self.evaluate(df[column_name].values)
-        return df
+    def apply_to_column(self, col:pd.Series):
+        col_pred = self.evaluate(col)
+        return col_pred
 
 # Example usage:
 breakpoints = [0, 1, 2, 3, 5]  # The x values where the slopes change
@@ -63,13 +56,13 @@ slopes = [2, -1, 0.5, 3]  # The slopes between the breakpoints
 model = VectorizedPiecewiseLinearModel(breakpoints, slopes)
 
 # Create a sample DataFrame
-df = pd.DataFrame({'x': np.linspace(0, 6, 100)})
+df = pd.Series(np.linspace(0, 6, 100))
 
 # Apply the piecewise function to the 'x' column
-df = model.apply_to_column(df, 'x')
+df_pred = model.apply_to_column(df)
 
 # Plot the result
-plt.plot(df['x'], df['x_transformed'], label="Transformed X")
+plt.plot(df, df_pred, label="Transformed X")
 plt.xlabel('X')
 plt.ylabel('Transformed X')
 plt.title('Vectorized Piecewise Linear Transformation')
