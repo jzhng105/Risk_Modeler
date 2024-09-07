@@ -2,8 +2,8 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 
-class VectorizedPiecewiseLinearModel:
-    def __init__(self, breakpoints, slopes):
+class PiecewiseLinearModel:
+    def __init__(self, startpoint, breakpoints, slopes):
         """
         Initialize the Piecewise Linear Model.
 
@@ -14,6 +14,7 @@ class VectorizedPiecewiseLinearModel:
         if len(slopes) != len(breakpoints) - 1:
             raise ValueError("Number of slopes must be one less than number of breakpoints.")
         
+        self.startpoint = startpoint
         self.breakpoints = np.array(breakpoints)
         self.slopes = np.array(slopes)
         self.intercepts = self._calculate_intercepts()
@@ -22,7 +23,7 @@ class VectorizedPiecewiseLinearModel:
         """
         Calculate intercepts based on breakpoints and slopes.
         """
-        intercepts = [0]  # Assume the curve starts at y=0 at the first breakpoint
+        intercepts = [self.startpoint]  # Assume the curve starts at y=0 at the first breakpoint
         for i in range(1, len(self.breakpoints)):
             intercepts.append(intercepts[i-1] + self.slopes[i-1] * (self.breakpoints[i] - self.breakpoints[i-1]))
         return np.array(intercepts)
@@ -49,11 +50,12 @@ class VectorizedPiecewiseLinearModel:
         col_pred = self.evaluate(col)
         return col_pred
 
+'''
 # Example usage:
 breakpoints = [0, 1, 2, 3, 5]  # The x values where the slopes change
 slopes = [2, -1, 0.5, 3]  # The slopes between the breakpoints
 
-model = VectorizedPiecewiseLinearModel(breakpoints, slopes)
+model = PiecewiseLinearModel(breakpoints, slopes)
 
 # Create a sample DataFrame
 df = pd.Series(np.linspace(0, 6, 100))
@@ -68,3 +70,4 @@ plt.ylabel('Transformed X')
 plt.title('Vectorized Piecewise Linear Transformation')
 plt.grid(True)
 plt.show()
+'''
