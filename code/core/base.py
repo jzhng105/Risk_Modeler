@@ -146,6 +146,18 @@ class DistributionFitter:
         distribution = self.selected_fit['distribution']
         params = self.selected_fit['params']
         return distribution.rvs(*params, size=size)
+    
+    @check_selected_dist
+    def sample_mixed(self, zero_prop=0, one_prop=0, size=1):
+        distribution = self.selected_fit['distribution']
+        params = self.selected_fit['params']
+        num_0 = int(zero_prop * size)
+        num_1 = int(one_prop * size)
+        num_sample = size - num_0 - num_1
+        mixed_sample = distribution.rvs(*params, size=num_sample)
+        sample = np.concatenate((np.zeros(num_0), np.ones(num_1), mixed_sample))
+        np.random.shuffle(sample)
+        return pd.Series(sample)
 
     @check_selected_dist
     def calculate_statistics(self):
@@ -269,6 +281,8 @@ sev_fitter.summary().to_csv('outputs/summary.csv')
 samples = sev_fitter.sample(size=10)
 print("Generated samples:", samples)
 
+samples = sev_fitter.sample_mixed(0.1, 0.1, size=10)
+
 #############################
 ###### Fit frequency ########
 #############################
@@ -291,7 +305,7 @@ sev_dist = sev_fitter.get_selected_dist()
 sev_params = sev_fitter.get_selected_params()
 
 
-simulator = stk.StochasticSimulator(freq_dist, freq_params, sev_dist, sev_params, 1000, True, 1234, 0.6)
+simulator = stk.StochasticSimulator(freq_dist, freq_params, sev_dist, sev_params, 1000, True, 1234, 0.6, 'frank', 0.1)
 simulator.gen_agg_simulations()
 simulator.calc_agg_percentile(99.2)
 simulator.plot_distribution()
